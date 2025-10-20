@@ -1,0 +1,4 @@
+# WIT dependencies for calculator
+
+[dependencies]
+"wasmcp:mcp" = "0.4.0"

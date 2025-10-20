@@ -1,0 +1,4 @@
+# WIT dependencies for string-utils
+
+[dependencies]
+"wasmcp:mcp" = "0.4.0"

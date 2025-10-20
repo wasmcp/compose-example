@@ -1,0 +1,17 @@
+package wasi:keyvalue@0.2.0-draft;
+
+interface store {
+  variant error {
+    no-such-store,
+    access-denied,
+    other(string),
+  }
+
+  record key-response {
+    keys: list<string>,
+    cursor: option<u64>,
+  }
+
+  resource bucket;
+}
+

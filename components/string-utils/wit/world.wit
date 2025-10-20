@@ -1,0 +1,9 @@
+package wasmcp:string-utils@0.4.0;
+
+/// string-utils MCP tools capability component
+///
+/// This component exports the tools-capability interface.
+/// The CLI will automatically wrap it with tools-middleware for composition.
+world string-utils {
+    export wasmcp:mcp/tools-capability@0.4.0;
+}

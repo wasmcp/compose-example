@@ -1,0 +1,2 @@
+[namespace_registries]
+wasmcp = "ghcr.io"

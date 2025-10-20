@@ -1,0 +1,4 @@
+# WIT dependencies for system-info
+
+[dependencies]
+"wasmcp:mcp" = "0.4.0"
