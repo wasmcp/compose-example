@@ -19,7 +19,12 @@ help: ## Show this help message
 # Default target
 .DEFAULT_GOAL := help
 
-# Configuration
+# === Runtime Configuration ===
+
+WASH_MANAGER := ./tools/wash-manager/target/release/wash-manager
+COMPONENT_PATH := $(PWD)/build/mcp-multi-tools.wasm
+COMPONENT_ID := mcp-multi-tools
+DEV_PORT := 8080
 CLUSTER_NAME ?= cosmonic-cluster
 NAMESPACE ?= default
 GITHUB_USER ?= $(shell git config --get user.name)
@@ -64,7 +69,7 @@ build-components: ## Build individual components
 	@for component in components/*/; do \
 		if [ -f "$$component/Cargo.toml" ]; then \
 			echo "Building $$(basename $$component)..."; \
-			(cd "$$component" && WKG_CONFIG_FILE=wkg-config.toml wash build) || exit 1; \
+			(cd "$$component" && wash build) || exit 1; \
 		fi \
 	done
 
@@ -72,7 +77,51 @@ build-components: ## Build individual components
 compose: ## Compose components into single WASM using profile
 	@echo "Composing components using multi-tools profile..."
 	@mkdir -p build
-	@wasmcp compose --profile multi-tools --output $(PWD)/build/mcp-multi-tools.wasm --force
+	@wasmcp compose multi-tools --output $(COMPONENT_PATH) --force
+
+# === Wash Manager Tool ===
+
+.PHONY: wash-manager
+wash-manager: ## Build the wash-manager tool
+	@echo "Building wash-manager..."
+	@cargo build --release --manifest-path tools/wash-manager/Cargo.toml
+
+# === Wash Runtime Targets ===
+
+.PHONY: wash
+wash: build wash-start ## Build and run in wash
+
+.PHONY: wash-start
+wash-start: wash-manager ## Start wash runtime
+	@$(WASH_MANAGER) start --component $(COMPONENT_PATH) --id $(COMPONENT_ID) --port $(DEV_PORT)
+
+.PHONY: wash-stop
+wash-stop: wash-manager ## Stop wash runtime and clean up
+	@$(WASH_MANAGER) stop --id $(COMPONENT_ID) --cleanup true
+
+.PHONY: wash-status
+wash-status: wash-manager ## Check wash runtime status
+	@$(WASH_MANAGER) status
+
+.PHONY: wash-clean
+wash-clean: wash-manager ## Clean up wash configurations and links
+	@$(WASH_MANAGER) clean
+
+# === Cosmonic Runtime Targets ===
+
+.PHONY: cosmonic-deploy
+cosmonic-deploy: build deploy ## Build and deploy to Cosmonic (kind cluster)
+
+.PHONY: cosmonic-status
+cosmonic-status: status-cosmonic status-deployment ## Check Cosmonic deployment status
+
+# === Wasmtime Runtime Targets (TODO) ===
+
+.PHONY: wasmtime
+wasmtime: build ## Build and run with wasmtime runtime
+	@wasmtime serve -Scli $(COMPONENT_PATH)
+	@exit 1
+
 
 .PHONY: registry-setup
 registry-setup: ## Set up wasmcp registry with component aliases
@@ -132,7 +181,9 @@ check-github:
 # === Deploy Targets ===
 
 .PHONY: deploy
-deploy: build push deploy-only ## Build, push, and deploy to cluster
+deploy: build 
+	@echo "Deploying to cluster..."
+	@VERSION=$(VERSION) ./scripts/deploy.sh
 
 .PHONY: deploy-only
 deploy-only: ## Deploy to cluster (without building)
