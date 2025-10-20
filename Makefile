@@ -74,10 +74,20 @@ build-components: ## Build individual components
 	done
 
 .PHONY: compose
-compose: ## Compose components into single WASM using profile
-	@echo "Composing components using multi-tools profile..."
+compose: compose-with-profile ## Compose components into single WASM using profile
+
+.PHONY: compose-with-aliases
+compose-with-aliases: registry-setup ## Compose using registry aliases
+	@echo "Composing with registry aliases..."
 	@mkdir -p build
-	@wasmcp compose multi-tools --output $(COMPONENT_PATH) --force
+	@wasmcp compose calc strings sysinfo --output $(PWD)/build/mcp-alias-composed.wasm
+	@echo "✓ Composed using aliases: build/mcp-alias-composed.wasm"
+
+.PHONY: compose-with-profile
+compose-with-profile: profile-create ## Compose using profile
+	@echo "Composing with profile..."
+	@wasmcp compose multi-tools --force --output $(PWD)/build/mcp-alias-composed.wasm  
+	@echo "✓ Composed using profile: multi-tools"
 
 # === Wash Manager Tool ===
 
@@ -122,13 +132,12 @@ wasmtime: build ## Build and run with wasmtime runtime
 	@wasmtime serve -Scli $(COMPONENT_PATH)
 	@exit 1
 
-
 .PHONY: registry-setup
 registry-setup: ## Set up wasmcp registry with component aliases
 	@echo "Setting up wasmcp registry aliases..."
-	@wasmcp registry component add calc components/calculator/target/wasm32-wasip2/debug/calculator.wasm
-	@wasmcp registry component add strings components/string-utils/target/wasm32-wasip2/debug/string_utils.wasm
-	@wasmcp registry component add sysinfo components/system-info/target/wasm32-wasip2/debug/system_info.wasm
+	@wasmcp registry component add calc $(PWD)/components/calculator/build/calculator_s.wasm
+	@wasmcp registry component add strings components/string-utils/build/string_utils_s.wasm
+	@wasmcp registry component add sysinfo components/system-info/build/system_info_s.wasm
 	@echo "✓ Aliases created: calc, strings, sysinfo"
 	@wasmcp registry component list
 
@@ -141,18 +150,7 @@ profile-create: registry-setup ## Create wasmcp profile for the multi-tool serve
 	@echo "✓ Profile 'multi-tools' created"
 	@wasmcp registry profile list
 
-.PHONY: compose-with-aliases
-compose-with-aliases: registry-setup ## Compose using registry aliases
-	@echo "Composing with registry aliases..."
-	@mkdir -p build
-	@wasmcp compose calc strings sysinfo --output $(PWD)/build/mcp-alias-composed.wasm
-	@echo "✓ Composed using aliases: build/mcp-alias-composed.wasm"
 
-.PHONY: compose-with-profile
-compose-with-profile: profile-create ## Compose using profile
-	@echo "Composing with profile..."
-	@wasmcp compose multi-tools
-	@echo "✓ Composed using profile: multi-tools"
 
 .PHONY: push
 push: check-github ## Push to ghcr.io (requires GITHUB_TOKEN)
