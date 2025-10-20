@@ -44,6 +44,10 @@ composed/
 # Kubernetes
 *.kubeconfig
 
+# Generated manifests (templates are versioned)
+manifests/*.yaml
+!manifests/templates/
+
 # Secrets - NEVER commit these
 **/cosmonic-license.yaml
 **/values.yaml

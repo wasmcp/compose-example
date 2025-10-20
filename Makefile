@@ -11,43 +11,67 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Quick Start:"
-	@echo "  1. make setup         - Set up everything from scratch"
-	@echo "  2. make deploy        - Build and deploy to cluster"
-	@echo "  3. make test          - Test the deployment"
-	@echo "  4. make cleanup       - Clean up everything"
+	@echo ""
+	@echo "Local Development (wash):"
+	@echo "  make wash             - Build and run locally"
+	@echo "  make wash-stop        - Stop local runtime"
+	@echo ""
+	@echo "Kubernetes Deployment (Cosmonic):"
+	@echo "  make cosmonic         - Build and deploy to cluster (auto-setup)"
+	@echo "  make cosmonic-status  - Check deployment status"
+	@echo "  make cosmonic-clean   - Clean up deployment"
+	@echo ""
+	@echo "Publishing:"
+	@echo "  make publish VERSION=x.x.x - Publish to ghcr.io"
 
 # Default target
 .DEFAULT_GOAL := help
 
 # === Runtime Configuration ===
 
+# Tool paths (auto-built as needed)
 WASH_MANAGER := ./tools/wash-manager/target/release/wash-manager
+COSMONIC_MANAGER := ./tools/cosmonic-manager/target/release/cosmonic-manager
+
+# Component configuration (internal)
 COMPONENT_PATH := $(PWD)/build/mcp-multi-tools.wasm
 COMPONENT_ID := mcp-multi-tools
-DEV_PORT := 8080
+
+# Local development (wash runtime - override in .env)
+DEV_PORT ?= 8080
+
+# Cluster configuration (override in .env)
 CLUSTER_NAME ?= cosmonic-cluster
 NAMESPACE ?= default
+
+# Publishing configuration (override in .env)
 GITHUB_USER ?= $(shell git config --get user.name)
 VERSION ?= 0.2.0
+APP_NAME ?= mcp-multi-tools
 
-# Load .env file if it exists
--include config/.env
+# Container image configuration (override in .env)
+# IMAGE_BASE: Repository without tag (e.g., ghcr.io/user/repo)
+# IMAGE: Full reference including tag (overrides IMAGE_BASE:VERSION)
+IMAGE_BASE ?= ghcr.io/wasmcp/example-mcp
+IMAGE ?=
+
+# Load environment overrides from .env if it exists
+-include .env
 export
+
+# Backward compatibility: support old GHCR_REPO variable name
+ifdef GHCR_REPO
+IMAGE_BASE := $(GHCR_REPO)
+endif
 
 # === Setup Targets ===
 
 .PHONY: setup
-setup: cluster cosmonic ## Complete setup: cluster + Cosmonic
+setup: cosmonic-setup ## Complete setup: cluster + Cosmonic
 
-.PHONY: cluster
-cluster: ## Set up kind cluster with registry
-	@echo "Setting up kind cluster..."
-	@./scripts/setup-kind.sh
-
-.PHONY: cosmonic
-cosmonic: check-license ## Install Cosmonic Control (requires COSMONIC_LICENSE_KEY)
-	@echo "Installing Cosmonic Control..."
-	@./scripts/install-cosmonic.sh
+.PHONY: cosmonic-setup
+cosmonic-setup: cosmonic-manager check-license ## Set up kind cluster and install Cosmonic Control
+	@$(COSMONIC_MANAGER) setup --cluster $(CLUSTER_NAME) --license-key $(COSMONIC_LICENSE_KEY)
 
 .PHONY: check-license
 check-license:
@@ -80,21 +104,26 @@ compose: compose-with-profile ## Compose components into single WASM using profi
 compose-with-aliases: registry-setup ## Compose using registry aliases
 	@echo "Composing with registry aliases..."
 	@mkdir -p build
-	@wasmcp compose calc strings sysinfo --output $(PWD)/build/mcp-alias-composed.wasm
-	@echo "✓ Composed using aliases: build/mcp-alias-composed.wasm"
+	@wasmcp compose calc strings sysinfo --output $(PWD)/build/mcp-multi-tools.wasm
+	@echo "✓ Composed using aliases: calc strings sysinfo"
 
 .PHONY: compose-with-profile
 compose-with-profile: profile-create ## Compose using profile
 	@echo "Composing with profile..."
-	@wasmcp compose multi-tools --force --output $(PWD)/build/mcp-alias-composed.wasm  
+	@wasmcp compose multi-tools --force --output $(PWD)/build/mcp-multi-tools.wasm  
 	@echo "✓ Composed using profile: multi-tools"
 
-# === Wash Manager Tool ===
+# === Manager Tools ===
 
 .PHONY: wash-manager
 wash-manager: ## Build the wash-manager tool
 	@echo "Building wash-manager..."
 	@cargo build --release --manifest-path tools/wash-manager/Cargo.toml
+
+.PHONY: cosmonic-manager
+cosmonic-manager: ## Build the cosmonic-manager tool
+	@echo "Building cosmonic-manager..."
+	@cargo build --release --manifest-path tools/cosmonic-manager/Cargo.toml
 
 # === Wash Runtime Targets ===
 
@@ -119,18 +148,32 @@ wash-clean: wash-manager ## Clean up wash configurations and links
 
 # === Cosmonic Runtime Targets ===
 
+.PHONY: cosmonic
+cosmonic: build cosmonic-deploy ## Build and deploy to Cosmonic (kind cluster)
+
 .PHONY: cosmonic-deploy
-cosmonic-deploy: build deploy ## Build and deploy to Cosmonic (kind cluster)
+cosmonic-deploy: cosmonic-manager ## Deploy to Cosmonic cluster
+	@if [ -n "$(IMAGE)" ]; then \
+		$(COSMONIC_MANAGER) deploy --image "$(IMAGE)" --namespace $(NAMESPACE) --app-name $(APP_NAME); \
+	else \
+		$(COSMONIC_MANAGER) deploy --image-base $(IMAGE_BASE) --version $(VERSION) --namespace $(NAMESPACE) --app-name $(APP_NAME); \
+	fi
 
 .PHONY: cosmonic-status
-cosmonic-status: status-cosmonic status-deployment ## Check Cosmonic deployment status
+cosmonic-status: cosmonic-manager ## Check Cosmonic deployment status
+	@$(COSMONIC_MANAGER) status --namespace $(NAMESPACE) --app-name $(APP_NAME)
+
+.PHONY: cosmonic-clean
+cosmonic-clean: cosmonic-manager ## Clean up Cosmonic deployment
+	@$(COSMONIC_MANAGER) clean --namespace $(NAMESPACE) --app-name $(APP_NAME)
 
 # === Wasmtime Runtime Targets (TODO) ===
 
 .PHONY: wasmtime
 wasmtime: build ## Build and run with wasmtime runtime
-	@wasmtime serve -Scli $(COMPONENT_PATH)
-	@exit 1
+	@wasmtime serve --addr 0.0.0.0:8081 -Scli $(COMPONENT_PATH)
+
+# === wasmcp Registry/Profile Targets ===
 
 .PHONY: registry-setup
 registry-setup: ## Set up wasmcp registry with component aliases
@@ -150,23 +193,21 @@ profile-create: registry-setup ## Create wasmcp profile for the multi-tool serve
 	@echo "✓ Profile 'multi-tools' created"
 	@wasmcp registry profile list
 
-
-
-.PHONY: push
-push: check-github ## Push to ghcr.io (requires GITHUB_TOKEN)
-	@echo "Pushing to ghcr.io..."
-	@./scripts/build-and-push.sh
+# === Publishing Targets ===
 
 .PHONY: publish
-publish: build compose check-github ## Publish composed WASM to ghcr.io with VERSION
+publish: build check-github ## Publish composed WASM to ghcr.io with VERSION
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Error: VERSION is required. Usage: make publish VERSION=0.2.0"; \
 		exit 1; \
 	fi
-	@echo "Publishing to ghcr.io/wasmcp/example-mcp:$(VERSION)..."
-	@wkg oci push "ghcr.io/wasmcp/example-mcp:$(VERSION)" "$(PWD)/build/mcp-multi-tools.wasm" \
-		--annotation org.opencontainers.image.source="https://github.com/wasmcp/compose-example"
-	@echo "✓ Published: ghcr.io/wasmcp/example-mcp:$(VERSION)"
+	$(eval PACKAGE_IMAGE := $(IMAGE_BASE):$(VERSION))
+	$(eval REPO_URL := https://github.com/$(GITHUB_USER)/compose-example)
+	@echo "Publishing to $(PACKAGE_IMAGE)..."
+	@wkg oci push "$(PACKAGE_IMAGE)" "$(PWD)/build/mcp-multi-tools.wasm" \
+		--annotation org.opencontainers.image.source="$(REPO_URL)"
+	@echo "✓ Published: $(PACKAGE_IMAGE)"
+	@echo "✓ Linked to repository: $(REPO_URL)"
 
 .PHONY: check-github
 check-github:
@@ -176,50 +217,15 @@ check-github:
 		exit 1; \
 	fi
 
-# === Deploy Targets ===
+# === Legacy/Alias Targets ===
 
 .PHONY: deploy
-deploy: build 
-	@echo "Deploying to cluster..."
-	@VERSION=$(VERSION) ./scripts/deploy.sh
+deploy: cosmonic ## Alias for cosmonic (backward compatibility)
 
 .PHONY: deploy-only
-deploy-only: ## Deploy to cluster (without building)
-	@echo "Deploying to cluster..."
-	@VERSION=$(VERSION) ./scripts/deploy.sh
-
-# === Test Targets ===
-
-.PHONY: test
-test: ## Test the deployed MCP server
-	@echo "Testing deployed MCP server..."
-	@./scripts/test-mcp.sh
+deploy-only: cosmonic-deploy ## Alias for cosmonic-deploy (backward compatibility)
 
 # === Status Targets ===
-
-.PHONY: status
-status: status-cluster status-cosmonic status-deployment ## Show all status information
-
-.PHONY: status-cluster
-status-cluster: ## Show cluster status
-	@echo "=== Cluster Status ==="
-	@kind get clusters 2>/dev/null | grep -q "$(CLUSTER_NAME)" && \
-		echo "✓ Cluster '$(CLUSTER_NAME)' is running" || \
-		echo "✗ Cluster '$(CLUSTER_NAME)' is not running"
-	@echo ""
-	@kubectl get nodes 2>/dev/null || echo "Cannot connect to cluster"
-
-.PHONY: status-cosmonic
-status-cosmonic: ## Show Cosmonic status
-	@echo "=== Cosmonic Status ==="
-	@kubectl get all -n cosmonic-system 2>/dev/null || echo "Cosmonic not installed"
-	@echo ""
-	@kubectl get crd 2>/dev/null | grep cosmonic || echo "No Cosmonic CRDs found"
-
-.PHONY: status-deployment
-status-deployment: ## Show deployment status
-	@echo "=== Deployment Status ==="
-	@kubectl get all -l app=mcp-multi-tools -n $(NAMESPACE) 2>/dev/null || echo "No deployment found"
 
 .PHONY: logs
 logs: ## Show deployment logs
@@ -236,33 +242,17 @@ clean: ## Clean build artifacts
 	@rm -f config/.cosmonic-values.yaml
 	@echo "✓ Build artifacts cleaned"
 
-.PHONY: cleanup
-cleanup: ## Interactive cleanup of cluster and registry
-	@echo "Starting interactive cleanup..."
-	@./scripts/cleanup.sh
-
-.PHONY: cleanup-all
-cleanup-all: ## Clean everything (cluster, registry, artifacts)
-	@echo "Cleaning everything..."
-	@CLEANUP_TARGET=all FORCE_CLEANUP=true KIND_CLUSTER_NAME=$(CLUSTER_NAME) ./scripts/cleanup.sh
-	@make clean
-
-.PHONY: cleanup-cluster
-cleanup-cluster: ## Delete only the kind cluster
-	@echo "Deleting cluster..."
-	@CLEANUP_TARGET=cluster FORCE_CLEANUP=true KIND_CLUSTER_NAME=$(CLUSTER_NAME) ./scripts/cleanup.sh
-
 # === Utility Targets ===
 
 .PHONY: env-setup
 env-setup: ## Create .env file from template
-	@if [ ! -f config/.env ]; then \
-		echo "Creating config/.env from template..."; \
-		cp config/.env.example config/.env; \
-		echo "✓ Created config/.env"; \
-		echo "Please edit config/.env and set your values"; \
+	@if [ ! -f .env ]; then \
+		echo "Creating .env from template..."; \
+		cp .env.example .env; \
+		echo "✓ Created .env"; \
+		echo "Please edit .env and set your values"; \
 	else \
-		echo "config/.env already exists"; \
+		echo ".env already exists"; \
 	fi
 
 .PHONY: validate
