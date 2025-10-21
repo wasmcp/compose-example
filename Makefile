@@ -90,6 +90,7 @@ build: build-components compose ## Build all components and compose them
 .PHONY: build-components
 build-components: ## Build individual components
 	@echo "Building components..."
+	@mkdir -p build
 	@for component in components/*/; do \
 		if [ -f "$$component/Cargo.toml" ]; then \
 			echo "Building $$(basename $$component)..."; \
