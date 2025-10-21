@@ -1,0 +1,14 @@
+package wasmcp:statistics@0.1.0;
+
+/// Statistics Tools Capability Component
+///
+/// Provides statistical operations on arrays of numbers:
+/// - mean: Calculate average of numbers
+/// - sum: Calculate total of numbers
+/// - count: Count elements in array
+///
+/// This component exports the tools-capability interface.
+/// The CLI will automatically wrap it with tools-middleware for composition.
+world statistics {
+    export wasmcp:protocol/tools@0.1.0-beta.2;
+}

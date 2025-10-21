@@ -105,8 +105,8 @@ compose: compose-with-profile ## Compose components into single WASM using profi
 compose-with-aliases: registry-setup ## Compose using registry aliases
 	@echo "Composing with registry aliases..."
 	@mkdir -p build
-	@wasmcp compose calc strings sysinfo --output $(PWD)/build/mcp-multi-tools.wasm
-	@echo "✓ Composed using aliases: calc strings sysinfo"
+	@wasmcp compose math strings sysinfo --output $(PWD)/build/mcp-multi-tools.wasm
+	@echo "✓ Composed using aliases: math strings sysinfo"
 
 .PHONY: compose-with-profile
 compose-with-profile: profile-create ## Compose using profile
@@ -179,19 +179,42 @@ wasmtime: build ## Build and run with wasmtime runtime
 .PHONY: registry-setup
 registry-setup: ## Set up wasmcp registry with component aliases
 	@echo "Setting up wasmcp registry aliases..."
-	@wasmcp registry component add calc $(PWD)/components/calculator/build/calculator_s.wasm
-	@wasmcp registry component add strings components/string-utils/build/string_utils_s.wasm
-	@wasmcp registry component add sysinfo components/system-info/build/system_info_s.wasm
-	@echo "✓ Aliases created: calc, strings, sysinfo"
+	@wasmcp registry component add math $(PWD)/components/math/build/math_s.wasm
+	@wasmcp registry component add strings $(PWD)/components/string-utils/build/string_utils_s.wasm
+	@wasmcp registry component add sysinfo $(PWD)/components/system-info/build/system_info_s.wasm
+	@wasmcp registry component add stats $(PWD)/components/statistics/build/statistics_s.wasm
+	@wasmcp registry component add pythag $(PWD)/components/pythagorean-middleware/build/pythagorean_middleware_s.wasm
+	@wasmcp registry component add distance $(PWD)/components/distance-calculator/build/distance_calculator_s.wasm
+	@wasmcp registry component add variance $(PWD)/components/variance-middleware/build/variance_middleware_s.wasm
+	@wasmcp registry component add stddev $(PWD)/components/stddev-middleware/build/stddev_middleware_s.wasm
+	@echo "✓ Aliases created: math, strings, sysinfo, stats, pythag, distance, variance, stddev"
 	@wasmcp registry component list
 
 .PHONY: profile-create
-profile-create: registry-setup ## Create wasmcp profile for the multi-tool server
-	@echo "Creating wasmcp profile 'multi-tools'..."
+profile-create: registry-setup ## Create wasmcp profiles for common use cases
+	@echo "Creating wasmcp profiles..."
+	@echo ""
+	@echo "Creating 'math' profile (math tools + middleware)..."
+	@wasmcp registry profile add math \
+		--output math-profile.wasm \
+		pythag distance math
+	@echo ""
+	@echo "Creating 'stats' profile (statistics suite)..."
+	@wasmcp registry profile add stats \
+		--output stats-profile.wasm \
+		stddev variance stats math
+	@echo ""
+	@echo "Creating 'multi-tools' profile (general purpose)..."
 	@wasmcp registry profile add multi-tools \
 		--output multi-tools-profile.wasm \
-		calc strings sysinfo
-	@echo "✓ Profile 'multi-tools' created"
+		math strings sysinfo
+	@echo ""
+	@echo "✓ Profiles created successfully!"
+	@echo ""
+	@echo "Available profiles:"
+	@echo "  • math        - Math operations (basic + pythagorean + distance)"
+	@echo "  • stats       - Statistics suite (mean, variance, stddev)"
+	@echo "  • multi-tools - General purpose (math + strings + sysinfo)"
 	@wasmcp registry profile list
 
 # === Publishing Targets ===

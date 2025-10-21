@@ -1,9 +1,0 @@
-package wasmcp:calculator@0.1.0;
-
-/// calculator MCP tools capability component
-///
-/// This component exports the tools-capability interface.
-/// The CLI will automatically wrap it with tools-middleware for composition.
-world calculator {
-    export wasmcp:protocol/tools@0.1.0-beta.2;
-}

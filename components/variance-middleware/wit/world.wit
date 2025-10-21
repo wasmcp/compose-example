@@ -1,0 +1,20 @@
+package wasmcp:variance-middleware@0.1.0;
+
+/// Variance Middleware Component
+///
+/// Calculates the variance of an array of numbers using the formula:
+/// variance = mean((x - μ)²) where μ is the mean
+///
+/// This middleware demonstrates dynamic tool composition by orchestrating:
+/// 1. Call mean(numbers) to get μ
+/// 2. For each x: calculate (x - μ)²
+/// 3. Call mean(squared_differences) to get variance
+///
+/// Requires downstream tools: mean, subtract, square
+world variance-middleware {
+    // Import handler interface to delegate downstream
+    import wasmcp:server/handler@0.1.0-beta.2;
+
+    // Export handler interface to be part of the chain
+    export wasmcp:server/handler@0.1.0-beta.2;
+}

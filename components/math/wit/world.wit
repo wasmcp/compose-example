@@ -1,0 +1,13 @@
+package wasmcp:math@0.1.0;
+
+/// Math MCP tools capability component
+///
+/// Provides comprehensive mathematical operations including:
+/// - Basic arithmetic: add, subtract, multiply, divide
+/// - Advanced operations: square, square_root, power
+///
+/// This component exports the tools-capability interface.
+/// The CLI will automatically wrap it with tools-middleware for composition.
+world math {
+    export wasmcp:protocol/tools@0.1.0-beta.2;
+}

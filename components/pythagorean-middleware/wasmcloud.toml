@@ -1,0 +1,7 @@
+name = "pythagorean-middleware"
+version = "0.1.0"
+type = "component"
+language = "rust"
+
+[component]
+claims = []
