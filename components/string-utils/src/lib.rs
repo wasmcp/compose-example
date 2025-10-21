@@ -9,14 +9,19 @@ mod bindings {
     });
 }
 
-use bindings::exports::wasmcp::mcp::tools_capability::Guest;
-use bindings::wasmcp::mcp::protocol::*;
+use bindings::exports::wasmcp::protocol::tools::Guest;
+use bindings::wasmcp::protocol::mcp::*;
+use bindings::wasi::io::streams::OutputStream;
 
 struct StringUtils;
 
 impl Guest for StringUtils {
-    fn list_tools(_request: ListToolsRequest, _client: ClientContext) -> ListToolsResult {
-        ListToolsResult {
+    fn list_tools(
+        _ctx: bindings::wasmcp::protocol::server_messages::Context,
+        _request: ListToolsRequest,
+        _client_stream: Option<&OutputStream>,
+    ) -> Result<ListToolsResult, ErrorCode> {
+        Ok(ListToolsResult {
             tools: vec![
                 Tool {
                     name: "uppercase".to_string(),
@@ -93,10 +98,14 @@ impl Guest for StringUtils {
             ],
             next_cursor: None,
             meta: None,
-        }
+        })
     }
 
-    fn call_tool(request: CallToolRequest, _client: ClientContext) -> Option<CallToolResult> {
+    fn call_tool(
+        _ctx: bindings::wasmcp::protocol::server_messages::Context,
+        request: CallToolRequest,
+        _client_stream: Option<&OutputStream>,
+    ) -> Option<CallToolResult> {
         match request.name.as_str() {
             "uppercase" => Some(execute_uppercase(&request.arguments)),
             "lowercase" => Some(execute_lowercase(&request.arguments)),

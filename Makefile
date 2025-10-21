@@ -149,7 +149,7 @@ wash-clean: wash-manager ## Clean up wash configurations and links
 # === Cosmonic Runtime Targets ===
 
 .PHONY: cosmonic
-cosmonic: build cosmonic-deploy ## Build and deploy to Cosmonic (kind cluster)
+cosmonic: cosmonic-deploy ## Build and deploy to Cosmonic (kind cluster)
 
 .PHONY: cosmonic-deploy
 cosmonic-deploy: cosmonic-manager ## Deploy to Cosmonic cluster
