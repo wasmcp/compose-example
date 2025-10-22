@@ -9,8 +9,8 @@ package wasmcp:pythagorean-middleware@0.1.0;
 /// - Order-dependent: math-primitives must come BEFORE this middleware in the pipeline
 world pythagorean-middleware {
     // Import handler interface to delegate downstream
-    import wasmcp:server/handler@0.1.0-beta.2;
+    import wasmcp:server/handler@0.1.0;
 
     // Export handler interface to be part of the chain
-    export wasmcp:server/handler@0.1.0-beta.2;
+    export wasmcp:server/handler@0.1.0;
 }

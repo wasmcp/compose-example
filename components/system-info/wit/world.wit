@@ -5,5 +5,5 @@ package wasmcp:system-info@0.4.0;
 /// This component exports the tools-capability interface.
 /// The CLI will automatically wrap it with tools-middleware for composition.
 world system-info {
-    export wasmcp:protocol/tools@0.1.0-beta.2;
+    export wasmcp:protocol/tools@0.1.0;
 }
