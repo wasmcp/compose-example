@@ -9,5 +9,5 @@ package wasmcp:math@0.1.0;
 /// This component exports the tools-capability interface.
 /// The CLI will automatically wrap it with tools-middleware for composition.
 world math {
-    export wasmcp:protocol/tools@0.1.0-beta.2;
+    export wasmcp:protocol/tools@0.1.0;
 }

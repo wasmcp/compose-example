@@ -5,5 +5,5 @@ package wasmcp:string-utils@0.4.0;
 /// This component exports the tools-capability interface.
 /// The CLI will automatically wrap it with tools-middleware for composition.
 world string-utils {
-    export wasmcp:protocol/tools@0.1.0-beta.2;
+    export wasmcp:protocol/tools@0.1.0;
 }

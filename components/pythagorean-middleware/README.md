@@ -103,8 +103,8 @@ POST http://localhost:8080/mcp
 // pythagorean-middleware/wit/world.wit
 world pythagorean-middleware {
     // Only needs handler interface - no tool imports!
-    import wasmcp:server/handler@0.1.0-beta.2;
-    export wasmcp:server/handler@0.1.0-beta.2;
+    import wasmcp:server/handler@0.1.0;
+    export wasmcp:server/handler@0.1.0;
 }
 ```
 
